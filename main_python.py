@@ -1,19 +1,28 @@
 #!/usr/bin/env python3
-import inputSensors
-import outputSensors
+import button
+#import PCF8591 as ADC
 import RPi.GPIO as GPIO
 import time
+#import math
+import subprocess
+#import flame_sensor
+
+
+
 # imports sensors from other packages above.
 # this will be used to control input to output
 
 
 # sets pins for components
 BtnPin = 15
+BtnPin2 = 29
 
 TRIG = 11
 ECHO = 12
 
 Buzzer = 22
+
+#DO = 13
 
 
 #buzzer songs
@@ -37,7 +46,9 @@ def setup():
     GPIO.setmode(GPIO.BOARD)       # Numbers GPIOs by physical location
     
     GPIO.setup(BtnPin, GPIO.IN, pull_up_down=GPIO.PUD_UP)    # Set BtnPin's mode is input, and pull up to high level(3.3V)
+    GPIO.setup(BtnPin2, GPIO.IN, pull_up_down=GPIO.PUD_UP)
     GPIO.add_event_detect(BtnPin, GPIO.BOTH, callback=detect, bouncetime=200)
+    GPIO.add_event_detect(BtnPin2, GPIO.BOTH, callback=detect, bouncetime=200)
     
     GPIO.setup(TRIG, GPIO.OUT)
     GPIO.setup(ECHO, GPIO.IN)
@@ -46,13 +57,33 @@ def setup():
     global Buzz                                             # Assign a global variable to replace GPIO.PWM
     Buzz = GPIO.PWM(Buzzer, 440)    # 440 is initial frequency.
 
+    #ADC.setup(0x48)
+    #GPIO.setup(DO, GPIO.IN)
 
+def textToSpeech(speech):
+    speech = speech.replace(' ','_')
+    subprocess.run(("espeak \"" + speech + "\" 2>/dev/null").split(" "))
 
+def tempButton(buttonIn):
+    if buttonIn == 0:
+        #print("Button Pressed")
+        from w1thermsensor import W1ThermSensor
+        sensor = W1ThermSensor()
+        temperature = sensor.get_temperature()
+        print("Temp is %s celcius" % temperature)
+        textToSpeech("Temp is %s celcius" % temperature)
+        time.sleep(1)
+    else:
+        #print("Button Not Pressed")
+        time.sleep(1)
+    
     
 #LED functions
-def Led(x):
-    if x == 0:
+def flameButton(x):
+    
+    if (x == 0):
         print("Button Pressed")
+        #print(GPIO.input(DO))
         
         #dis = distance()
         #print (dis, 'cm')
@@ -77,18 +108,23 @@ def Led(x):
     if x == 1:
         #print("lol nope")
         Buzz.stop()                           # Stop the buzzer
-        print("Button off")
+        #print("Button off")
 
 def detect(chn):
-    Led(GPIO.input(BtnPin))
+    tempButton(GPIO.input(BtnPin))
+    flameButton(GPIO.input(BtnPin2))
     
-    
+
 #core loop
 def loop():
     while True:
+        run()
         pass
     
-
+def run():
+    tempButton(GPIO.input(BtnPin))
+    flameButton(GPIO.input(BtnPin2))
+    
 #program terminator
 def destroy():
     Buzz.stop()                                     # Stop the buzzer
@@ -101,7 +137,8 @@ def destroy():
 if __name__ == '__main__':
     setup()
     try:
-        loop()
+        run()
+        
     except KeyboardInterrupt:  # When 'Ctrl+C' is pressed, the child program destroy() will be  executed.
         destroy()
     
