@@ -1,16 +1,21 @@
 #!/usr/bin/env python3
 import button
-#import PCF8591 as ADC
+import PCF8591 as ADC
 import RPi.GPIO as GPIO
 import time
-#import math
+import math
 import subprocess
-#import flame_sensor
 
 
 
 # imports sensors from other packages above.
 # this will be used to control input to output
+
+#Button Vars
+global flameButtonPressed
+flameButtonPressed = False
+global tempButtonPressed
+tempButtonPressed = False
 
 
 # sets pins for components
@@ -22,7 +27,7 @@ ECHO = 12
 
 Buzzer = 22
 
-#DO = 13
+DO = 13
 
 
 #buzzer songs
@@ -32,11 +37,11 @@ CM = [0, 262, 294, 330, 350, 393, 441, 495]         # Frequency of Middle C note
 
 CH = [0, 525, 589, 661, 700, 786, 882, 990]         # Frequency of High C notes
 
-song_1 = [  CL[0], CM[1], CH[4] ] #Detected
+song_1 = [  CL[0], CM[1], CH[4] ] #No Flame
 
 beat_1 = [  1, 1, 1 ]
 
-song_2 = [  CH[0], CM[1], CL[4] ] #Not Detected
+song_2 = [  CH[0], CM[1], CL[4] ] #Flame
 
 beat_2 = [  1, 1, 1 ]
 
@@ -54,61 +59,66 @@ def setup():
     GPIO.setup(ECHO, GPIO.IN)
     
     GPIO.setup(Buzzer, GPIO.OUT)    # Set pins' mode is output
-    global Buzz                                             # Assign a global variable to replace GPIO.PWM
+    global Buzz                     # Assign a global variable to replace GPIO.PWM
     Buzz = GPIO.PWM(Buzzer, 440)    # 440 is initial frequency.
 
-    #ADC.setup(0x48)
-    #GPIO.setup(DO, GPIO.IN)
+    ADC.setup(0x48)
+    GPIO.setup(DO, GPIO.IN)
 
+
+#Text to Speech Function
 def textToSpeech(speech):
     speech = speech.replace(' ','_')
     subprocess.run(("espeak \"" + speech + "\" 2>/dev/null").split(" "))
 
+
+#Temperature Button Function
 def tempButton(buttonIn):
-    if buttonIn == 0:
-        #print("Button Pressed")
-        from w1thermsensor import W1ThermSensor
-        sensor = W1ThermSensor()
-        temperature = sensor.get_temperature()
-        print("Temp is %s celcius" % temperature)
-        textToSpeech("Temp is %s celcius" % temperature)
-        time.sleep(1)
+    global tempButtonPressed
+    global flameButtonPressed
+    if (buttonIn == 0):
+        if (tempButtonPressed == False) and (flameButtonPressed == False):
+            tempButtonPressed = True
+            print("Temperature Button Pressed")
+            from w1thermsensor import W1ThermSensor
+            sensor = W1ThermSensor()
+            temperature = sensor.get_temperature()
+            print("Temp is %s celcius" % temperature)
+            textToSpeech("Temp is %s celcius" % temperature)
     else:
-        #print("Button Not Pressed")
-        time.sleep(1)
+        tempButtonPressed = False
     
     
-#LED functions
-def flameButton(x):
-    
-    if (x == 0):
-        print("Button Pressed")
-        #print(GPIO.input(DO))
-        
-        #dis = distance()
-        #print (dis, 'cm')
-        #print ('')
-        
-        #button pressed
-        if (x == 0):   
-            Buzz.start(50)                                  # Start Buzzer pin with 50% duty ration
-            #    Playing song 1...
-            for i in range(1, len(song_1)):             # Play song 1
-                Buzz.ChangeFrequency(song_1[i]) # Change the frequency along the song note
-                time.sleep(beat_1[i] * 0.5)             # delay a note for beat * 0.5s
-            Buzz.stop()  
-        else:
-            Buzz.start(50)                                  # Start Buzzer pin with 50% duty ration
-            #    Playing song 1...
-            for i in range(1, len(song_2)):             # Play song 1
-                Buzz.ChangeFrequency(song_2[i]) # Change the frequency along the song note
-                time.sleep(beat_2[i] * 0.5)             # delay a note for beat * 0.5s
-            Buzz.stop()  
-        
-    if x == 1:
-        #print("lol nope")
-        Buzz.stop()                           # Stop the buzzer
-        #print("Button off")
+#Flame Button Function
+def flameButton(buttonIn):
+    global flameButtonPressed
+    global tempButtonPressed
+    if (buttonIn == 0):
+        if (flameButtonPressed == False) and (tempButtonPressed == False):
+            flameButtonPressed = True
+            print("Flame Button Pressed")
+            tmp = GPIO.input(DO)
+            print(tmp)
+            
+            #Check if flame sensor is triggered
+            if (tmp == 0):   
+                Buzz.start(50)                              # Start Buzzer pin with 50% duty ration
+                #Playing song 1...
+                for i in range(1, len(song_1)):             # Play song 1
+                    Buzz.ChangeFrequency(song_1[i])         # Change the frequency along the song note
+                    time.sleep(beat_1[i] * 0.5)             # delay a note for beat * 0.5s
+                Buzz.stop()  
+            else:
+                Buzz.start(50)                              # Start Buzzer pin with 50% duty ration
+                #Playing song 2...
+                for i in range(1, len(song_2)):             # Play song 2
+                    Buzz.ChangeFrequency(song_2[i])         # Change the frequency along the song note
+                    time.sleep(beat_2[i] * 0.5)             # delay a note for beat * 0.5s
+                Buzz.stop()  
+            
+    else:
+        flameButtonPressed = False
+        Buzz.stop()                                         # Stop the buzzer
 
 def detect(chn):
     tempButton(GPIO.input(BtnPin))
@@ -127,7 +137,7 @@ def run():
     
 #program terminator
 def destroy():
-    Buzz.stop()                                     # Stop the buzzer
+    Buzz.stop()                     # Stop the buzzer
     GPIO.output(Buzzer, 1)          # Set Buzzer pin to High
     
     GPIO.cleanup()      
@@ -141,7 +151,3 @@ if __name__ == '__main__':
         
     except KeyboardInterrupt:  # When 'Ctrl+C' is pressed, the child program destroy() will be  executed.
         destroy()
-    
-    
-#     edit ultrasonic sensor distance
-#     while ultrasonic sensor == some arbitrary close number, then enable temp sensor
