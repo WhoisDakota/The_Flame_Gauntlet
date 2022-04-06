@@ -37,11 +37,11 @@ CM = [0, 262, 294, 330, 350, 393, 441, 495]         # Frequency of Middle C note
 
 CH = [0, 525, 589, 661, 700, 786, 882, 990]         # Frequency of High C notes
 
-song_1 = [  CL[0], CM[1], CH[4] ] #No Flame
+song_1 = [  CL[0], CM[1], CH[4] ] #Flame
 
 beat_1 = [  1, 1, 1 ]
 
-song_2 = [  CH[0], CM[1], CL[4] ] #Flame
+song_2 = [  CH[0], CM[1], CL[4] ] #No Flame
 
 beat_2 = [  1, 1, 1 ]
 
@@ -97,11 +97,12 @@ def flameButton(buttonIn):
         if (flameButtonPressed == False) and (tempButtonPressed == False):
             flameButtonPressed = True
             print("Flame Button Pressed")
-            tmp = GPIO.input(DO)
+            #tmp = GPIO.input(DO)
+            tmp = ADC.read(0)
             print(tmp)
             
             #Check if flame sensor is triggered
-            if (tmp == 0):   
+            if (tmp <= 175):   
                 Buzz.start(50)                              # Start Buzzer pin with 50% duty ration
                 #Playing song 1...
                 for i in range(1, len(song_1)):             # Play song 1
